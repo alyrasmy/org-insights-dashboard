@@ -1,0 +1,65 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>GitHub Repo Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; background: #f4f4f4; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 12px 15px; border: 1px solid #ddd; text-align: left; }
+    th { background-color: #333; color: white; }
+    tr:nth-child(even) { background-color: #f2f2f2; }
+    .highlight { background-color: #ffdddd; }
+  </style>
+</head>
+<body>
+  <h1>GitHub Repositories Dashboard</h1>
+  <table id="repo-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Owner</th>
+        <th>Last Commit</th>
+        <th>Issues</th>
+        <th>PRs</th>
+        <th>Language</th>
+        <th>Stars</th>
+        <th>Bus Factor</th>
+        <th>Inactive (days)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    async function loadRepos() {
+      const response = await fetch('repos-summary.json');
+      const data = await response.json();
+      const table = document.getElementById('repo-table').getElementsByTagName('tbody')[0];
+
+      data.repositories.forEach(repo => {
+        const row = table.insertRow();
+        if (repo.inactive_days > 30 || repo.bus_factor <= 1) {
+          row.classList.add('highlight');
+        }
+        row.innerHTML = `
+          <td>${repo.name}</td>
+          <td>${repo.description}</td>
+          <td>${repo.owner}</td>
+          <td>${new Date(repo.last_commit).toLocaleDateString()}</td>
+          <td>${repo.open_issues}</td>
+          <td>${repo.open_pull_requests}</td>
+          <td>${repo.primary_language}</td>
+          <td>${repo.stars}</td>
+          <td>${repo.bus_factor}</td>
+          <td>${repo.inactive_days}</td>
+        `;
+      });
+    }
+
+    loadRepos();
+  </script>
+</body>
+</html>
