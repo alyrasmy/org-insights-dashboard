@@ -1,0 +1,161 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GitHub Repo Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6 text-gray-900">
+  <div class="max-w-7xl mx-auto">
+    <h1 class="text-4xl font-bold mb-4">GitHub Repository Insights</h1>
+    <p class="text-sm mb-4 text-gray-600">Generated from <span id="generated-at"></span></p>
+
+    <div class="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <label for="filter-inactive" class="mr-2">Show inactive (30+ days):</label>
+        <input type="checkbox" id="filter-inactive" checked class="mr-4">
+        <label for="filter-busfactor" class="mr-2">Show low bus factor (≤1):</label>
+        <input type="checkbox" id="filter-busfactor" checked>
+      </div>
+      <div>
+        <input type="text" id="search-box" placeholder="Search by name or description..." class="px-4 py-2 rounded border border-gray-300 w-full md:w-96">
+      </div>
+    </div>
+
+    <div class="overflow-auto rounded shadow bg-white">
+      <table class="min-w-full divide-y divide-gray-200 text-sm" id="repo-table">
+        <thead class="bg-gray-800 text-white">
+          <tr>
+            <th class="px-4 py-2 cursor-pointer" onclick="sortTable('name')">Name</th>
+            <th class="px-4 py-2 cursor-pointer" onclick="sortTable('description')">Description</th>
+            <th class="px-4 py-2 cursor-pointer" onclick="sortTable('owner')">Owner</th>
+            <th class="px-4 py-2 cursor-pointer" onclick="sortTable('last_commit')">Last Commit</th>
+            <th class="px-4 py-2 cursor-pointer" onclick="sortTable('open_issues')">Issues</th>
+            <th class="px-4 py-2 cursor-pointer" onclick="sortTable('open_pull_requests')">PRs</th>
+            <th class="px-4 py-2 cursor-pointer" onclick="sortTable('primary_language')">Language</th>
+            <th class="px-4 py-2 cursor-pointer" onclick="sortTable('stars')">Stars</th>
+            <th class="px-4 py-2 cursor-pointer" onclick="sortTable('bus_factor')">Bus Factor</th>
+            <th class="px-4 py-2 cursor-pointer" onclick="sortTable('inactive_days')">Inactive (days)</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 bg-white"></tbody>
+      </table>
+    </div>
+
+    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <h2 class="text-xl font-semibold mb-2">Stars per Repository</h2>
+        <canvas id="starsChart" height="200"></canvas>
+      </div>
+      <div>
+        <h2 class="text-xl font-semibold mb-2">Languages Distribution</h2>
+        <canvas id="languageChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let repoData = [];
+    let currentSort = { key: '', asc: true };
+
+    function renderTable(data) {
+      const tbody = document.querySelector("#repo-table tbody");
+      tbody.innerHTML = '';
+      data.forEach(repo => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td class="px-4 py-2 font-medium">${repo.name}</td>
+          <td class="px-4 py-2">${repo.description}</td>
+          <td class="px-4 py-2">${repo.owner}</td>
+          <td class="px-4 py-2">${new Date(repo.last_commit).toLocaleDateString()}</td>
+          <td class="px-4 py-2">${repo.open_issues}</td>
+          <td class="px-4 py-2">${repo.open_pull_requests}</td>
+          <td class="px-4 py-2">${repo.primary_language}</td>
+          <td class="px-4 py-2">${repo.stars}</td>
+          <td class="px-4 py-2">${repo.bus_factor}</td>
+          <td class="px-4 py-2">${repo.inactive_days}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function filterData() {
+      const showInactive = document.getElementById('filter-inactive').checked;
+      const showLowBusFactor = document.getElementById('filter-busfactor').checked;
+      const searchTerm = document.getElementById('search-box').value.toLowerCase();
+
+      return repoData.filter(repo => {
+        return (!showInactive || repo.inactive_days >= 30) &&
+               (!showLowBusFactor || repo.bus_factor <= 1) &&
+               (repo.name.toLowerCase().includes(searchTerm) || repo.description.toLowerCase().includes(searchTerm));
+      });
+    }
+
+    function sortTable(key) {
+      if (currentSort.key === key) currentSort.asc = !currentSort.asc;
+      else currentSort = { key, asc: true };
+
+      repoData.sort((a, b) => {
+        if (a[key] < b[key]) return currentSort.asc ? -1 : 1;
+        if (a[key] > b[key]) return currentSort.asc ? 1 : -1;
+        return 0;
+      });
+
+      renderTable(filterData());
+    }
+
+    function drawCharts(data) {
+      const starsChart = document.getElementById('starsChart').getContext('2d');
+      const languageChart = document.getElementById('languageChart').getContext('2d');
+
+      const sortedByStars = [...data].sort((a, b) => b.stars - a.stars);
+      new Chart(starsChart, {
+        type: 'bar',
+        data: {
+          labels: sortedByStars.map(repo => repo.name),
+          datasets: [{
+            label: 'Stars',
+            data: sortedByStars.map(repo => repo.stars),
+            backgroundColor: '#60a5fa'
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+
+      const languageCounts = {};
+      data.forEach(repo => {
+        languageCounts[repo.primary_language] = (languageCounts[repo.primary_language] || 0) + 1;
+      });
+
+      new Chart(languageChart, {
+        type: 'pie',
+        data: {
+          labels: Object.keys(languageCounts),
+          datasets: [{
+            data: Object.values(languageCounts),
+            backgroundColor: ['#60a5fa','#34d399','#f87171','#fbbf24','#a78bfa','#f472b6']
+          }]
+        },
+        options: { responsive: true }
+      });
+    }
+
+    async function loadAndRender() {
+      const response = await fetch('repos-summary.json');
+      const json = await response.json();
+      repoData = json.repositories;
+      document.getElementById('generated-at').textContent = new Date(json.generated_at).toLocaleString();
+      renderTable(filterData());
+      drawCharts(repoData);
+    }
+
+    document.getElementById('filter-inactive').addEventListener('change', () => renderTable(filterData()));
+    document.getElementById('filter-busfactor').addEventListener('change', () => renderTable(filterData()));
+    document.getElementById('search-box').addEventListener('input', () => renderTable(filterData()));
+
+    loadAndRender();
+  </script>
+</body>
+</html>
